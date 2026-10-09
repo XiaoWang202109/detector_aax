@@ -175,7 +175,7 @@ def fetch_soup() -> BeautifulSoup:
     response = requests.get(
         URL,
         timeout=30,
-        headers={"User-Agent": "arxiv-cond-mat-monitor/2.0"},
+        headers={"User-Agent": "arxiv-cond-mat-monitor/3.0"},
     )
     response.raise_for_status()
     return BeautifulSoup(response.text, "html.parser")
@@ -243,16 +243,31 @@ def compact_formula_text(text: str) -> str:
     return text
 
 
+def tokenize_for_exact_search(text: str) -> str:
+    """Normalize text into space-delimited alphanumeric tokens.
+
+    Padding with spaces lets callers perform an exact token/phrase lookup.  In
+    particular, a keyword such as ``Yao Wang`` must not match the tail of
+    ``Xiyao Wang``.
+    """
+    normalized = normalize_for_search(text)
+    tokens = re.findall(r"[a-z0-9]+", normalized)
+    return " " + " ".join(tokens) + " "
+
+
 def find_keywords(search_text: str) -> list[str]:
-    normalized_text = normalize_for_search(search_text)
+    tokenized_text = tokenize_for_exact_search(search_text)
     compact_text = compact_formula_text(search_text)
 
     matched = []
     for keyword in KEYWORDS:
-        normalized_keyword = normalize_for_search(keyword)
+        tokenized_keyword = tokenize_for_exact_search(keyword).strip()
         compact_keyword = compact_formula_text(keyword)
         is_formula_keyword = any(char.isdigit() for char in compact_keyword)
-        if normalized_keyword in normalized_text or (
+        # Exact token boundaries prevent person-name substring false positives:
+        # Yao Wang != Xiyao Wang, Jie Gu != Jie Guan, Jun Yan != Jun Yang.
+        exact_phrase = f" {tokenized_keyword} " in tokenized_text
+        if exact_phrase or (
             is_formula_keyword and compact_keyword in compact_text
         ):
             matched.append(keyword)
