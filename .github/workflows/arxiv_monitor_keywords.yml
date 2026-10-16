@@ -1,31 +1,66 @@
-name: arxiv_monitor_keywords
+name: arxiv_monitor_keywords_v4
 
 on:
   workflow_dispatch:
+  schedule:
+    # GitHub cron 使用 UTC；01:00 UTC = 北京时间 09:00。
+    - cron: "0 1 * * 1-5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: arxiv-monitor-keywords-v4
+  cancel-in-progress: false
 
 jobs:
-  run-arxiv-monitor-keywords:
+  monitor:
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests beautifulsoup4
+        run: python -m pip install --upgrade requests beautifulsoup4
 
-      - name: Run arXiv keyword monitor
+      - name: Run arXiv monitor v4
         env:
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_TO_2: ${{ secrets.EMAIL_TO_2 }}
           EMAIL_TO_CRK: ${{ secrets.EMAIL_TO_CRK }}
-        run: python arxiv_monitor_keywords.py
+        run: python arxiv_monitor_keywords_v4.py
+
+      - name: Commit durable monitor state
+        if: success()
+        shell: bash
+        run: |
+          STATE_FILE="state/arxiv_monitor_state.json"
+          if [[ ! -f "$STATE_FILE" ]]; then
+            echo "No state file was produced; nothing to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$STATE_FILE"
+
+          if git diff --cached --quiet; then
+            echo "Monitor state is unchanged."
+            exit 0
+          fi
+
+          git commit -m "chore: update arXiv monitor state"
+          git pull --rebase origin main
+          git push origin HEAD:main
