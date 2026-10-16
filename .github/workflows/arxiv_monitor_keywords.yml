@@ -2,9 +2,6 @@ name: arxiv_monitor_keywords_v4
 
 on:
   workflow_dispatch:
-  schedule:
-    # GitHub cron 使用 UTC；01:00 UTC = 北京时间 09:00。
-    - cron: "0 1 * * 1-5"
 
 permissions:
   contents: write
