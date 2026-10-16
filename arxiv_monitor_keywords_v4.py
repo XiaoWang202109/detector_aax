@@ -24,6 +24,7 @@ BASE_URL = "https://arxiv.org"
 URL = f"{BASE_URL}/list/cond-mat/new?skip=0&show=2000"
 PASTWEEK_URL = f"{BASE_URL}/list/cond-mat/pastweek?skip=0&show=2000"
 CHECK_INTERVAL = 120
+STABILITY_CONFIRM_DELAY = 20
 # GitHub-hosted job 最长通常设置为 360 分钟。这里最多轮询 5 小时 40 分钟，
 # 给 PDF、邮件及最后提交状态文件预留约 20 分钟。
 RUN_LIMIT = 5 * 60 * 60 + 40 * 60
@@ -79,6 +80,8 @@ KEYWORDS = [
     "Eric Anderson",
     "Erfu Liu",
     "Eslam Khalaf",
+    "Exciton",
+    "Excitons"
     "Feng Wang",
     "Fengcheng Wu",
     "Heonjoon Park",
@@ -973,8 +976,11 @@ def main() -> int:
         if fingerprint != stable_fingerprint:
             stable_fingerprint = fingerprint
             last_status = "完整页面首次确认，等待下一轮稳定性复核"
-            print(f"[{datetime.now()}] {reason}；等待两分钟后再次确认页面稳定。")
-            time.sleep(CHECK_INTERVAL)
+            print(
+                f"[{datetime.now()}] {reason}；"
+                f"等待 {STABILITY_CONFIRM_DELAY} 秒后再次确认页面稳定。"
+            )
+            time.sleep(STABILITY_CONFIRM_DELAY)
             continue
 
         try:
